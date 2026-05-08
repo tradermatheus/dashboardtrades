@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trading Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { background:#030712; color:white; min-height:100vh; }
+    .glass {
+      background: linear-gradient(145deg, rgba(15,23,42,.98), rgba(8,13,26,.98));
+      border: 1px solid rgba(255,255,255,.09);
+      box-shadow: 0 24px 80px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.03);
+    }
+    .day:hover .trash { opacity: 1; transform: translateY(0); }
+    .day:hover { transform: translateY(-2px); }
+    .modal { display:none; }
+    .modal.open { display:flex; }
+    input, select, textarea { color:white; }
+    option { background:#111827; color:white; }
+  </style>
+</head>
+
+<body class="p-4 md:p-8">
+  <div class="max-w-[1500px] mx-auto">
+    <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+      <div>
+        <h1 class="text-4xl md:text-6xl font-black tracking-tight">TRADING DASHBOARD</h1>
+        <p class="text-zinc-500 mt-2">Calendário de trades XAUUSD • 2026</p>
+      </div>
+
+      <button onclick="downloadBackup()" class="px-5 py-3 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">
+        Exportar Backup
+      </button>
+    </header>
+
+    <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-6">
+      <div class="glass rounded-[28px] p-6">
+        <p class="text-zinc-400 mb-2">Saldo Atual</p>
+        <h2 id="balanceNow" class="text-4xl font-black text-green-400">R$ 0,00</h2>
+        <p class="text-zinc-500 mt-5 text-sm">Saldo Inicial</p>
+        <input id="initialBalance" type="number" value="1000" class="w-full bg-transparent outline-none text-2xl font-bold mt-1" />
+      </div>
+
+      <div class="glass rounded-[28px] p-6">
+        <p class="text-zinc-400 mb-2">Winrate</p>
+        <h2 id="winrate" class="text-4xl font-black text-green-400">0%</h2>
+        <p id="winsLosses" class="text-zinc-500 mt-5">0 vitórias / 0 derrotas</p>
+      </div>
+
+      <div class="glass rounded-[28px] p-6">
+        <p class="text-zinc-400 mb-2">Lucro Mensal</p>
+        <h2 id="monthlyProfit" class="text-4xl font-black">R$ 0,00</h2>
+        <p id="monthlyTrades" class="text-zinc-500 mt-5">0 operações no mês</p>
+      </div>
+
+      <div class="glass rounded-[28px] p-6">
+        <p class="text-zinc-400 mb-2">Selecionar Mês</p>
+        <select id="monthSelect" class="w-full mt-3 bg-[#111827] border border-white/10 rounded-2xl p-4 outline-none"></select>
+      </div>
+    </section>
+
+    <main class="grid grid-cols-1 2xl:grid-cols-[1fr_390px] gap-6">
+      <section class="glass rounded-[34px] p-5 md:p-7">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-7">
+          <div>
+            <h2 class="text-3xl font-black">Calendário de Trades</h2>
+            <p class="text-zinc-500 mt-1">Clique no + para adicionar. Clique no dia para ver notas e print.</p>
+          </div>
+          <div class="flex gap-5 text-sm text-zinc-400">
+            <span><b class="text-green-400">●</b> Lucro</span>
+            <span><b class="text-red-400">●</b> Prejuízo</span>
+            <span><b class="text-yellow-400">V</b> Virou mão</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-7 gap-2 md:gap-3 mb-3 text-center text-zinc-500 font-bold text-xs md:text-sm">
+          <div>DOM</div><div>SEG</div><div>TER</div><div>QUA</div><div>QUI</div><div>SEX</div><div>SÁB</div>
+        </div>
+
+        <div id="calendar" class="grid grid-cols-7 gap-2 md:gap-3"></div>
+      </section>
+
+      <aside class="glass rounded-[34px] p-6 h-fit 2xl:sticky 2xl:top-6">
+        <h2 class="text-3xl font-black mb-6">Detalhes</h2>
+        <div id="details" class="text-zinc-500 text-center py-24">Clique em um dia</div>
+      </aside>
+    </main>
+  </div>
+
+  <div id="modal" class="modal fixed inset-0 z-50 bg-black/75 backdrop-blur-sm items-center justify-center p-4">
+    <div class="glass w-full max-w-xl rounded-[32px] p-6">
+      <div class="flex items-center justify-between mb-6">
+        <h2 id="modalTitle" class="text-2xl md:text-3xl font-black">Adicionar Trade</h2>
+        <button onclick="closeModal()" class="text-3xl text-zinc-400 hover:text-white">×</button>
+      </div>
+
+      <div class="space-y-4">
+        <div class="bg-[#111827] border border-white/10 rounded-2xl p-4 text-zinc-300">Par: XAUUSD</div>
+
+        <select id="tradeType" class="w-full bg-[#111827] border border-white/10 rounded-2xl p-4 outline-none">
+          <option>COMPRA</option><option>VENDA</option>
+        </select>
+
+        <input id="tradeAmount" type="number" placeholder="Quanto ganhou/perdeu. Ex: 150 ou -80"
+          class="w-full bg-[#111827] border border-white/10 rounded-2xl p-4 outline-none" />
+
+        <input id="tradeChannel" placeholder="Tamanho do canal"
+          class="w-full bg-[#111827] border border-white/10 rounded-2xl p-4 outline-none" />
+
+        <select id="tradeTake" class="w-full bg-[#111827] border border-white/10 rounded-2xl p-4 outline-none">
+          <option>1 Nivel</option><option>2 Niveis</option>
+        </select>
+
+        <select id="tradeReverse" class="w-full bg-[#111827] border border-white/10 rounded-2xl p-4 outline-none">
+          <option>Nao</option><option>Sim</option>
+        </select>
+
+        <textarea id="tradeNotes" placeholder="Notas do trade" class="w-full h-32 bg-[#111827] border border-white/10 rounded-2xl p-4 outline-none resize-none"></textarea>
+
+        <input id="tradeImage" type="file" accept="image/*" class="w-full bg-[#111827] border border-white/10 rounded-2xl p-4 outline-none" />
+
+        <button onclick="saveTrade()" class="w-full py-4 rounded-2xl bg-green-500 text-black font-black hover:opacity-90 transition">
+          Salvar Trade
+        </button>
+      </div>
+    </div>
+  </div>
+
+<script>
+const months = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const year = 2026;
+let currentMonth = 0;
+let activeDay = null;
+let trades = JSON.parse(localStorage.getItem('tradingDashboardTrades') || '{}');
+const monthSelect = document.getElementById('monthSelect');
+
+months.forEach((m,i)=> {
+  const opt = document.createElement('option');
+  opt.value = i;
+  opt.textContent = `${m} ${year}`;
+  monthSelect.appendChild(opt);
+});
+monthSelect.value = currentMonth;
+
+monthSelect.addEventListener('change', e => {
+  currentMonth = Number(e.target.value);
+  render();
+});
+
+document.getElementById('initialBalance').addEventListener('input', render);
+
+function key(day, month=currentMonth){ return `${year}-${month}-${day}`; }
+
+function money(v){
+  return 'R$ ' + Number(v || 0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function monthTrades(){
+  return Object.entries(trades)
+    .filter(([k]) => Number(k.split('-')[1]) === currentMonth)
+    .map(([,v]) => v);
+}
+
+function allTrades(){
+  return Object.values(trades);
+}
+
+function openModal(day){
+  activeDay = day;
+  document.getElementById('modalTitle').textContent = `Adicionar Trade - Dia ${day}`;
+  document.getElementById('modal').classList.add('open');
+  document.getElementById('tradeAmount').value = '';
+  document.getElementById('tradeChannel').value = '';
+  document.getElementById('tradeNotes').value = '';
+  document.getElementById('tradeImage').value = '';
+}
+
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+
+function saveTrade(){
+  const amount = Number(document.getElementById('tradeAmount').value || 0);
+  const file = document.getElementById('tradeImage').files[0];
+
+  const data = {
+    day: activeDay,
+    month: currentMonth,
+    type: document.getElementById('tradeType').value,
+    amount,
+    channel: document.getElementById('tradeChannel').value,
+    take: document.getElementById('tradeTake').value,
+    reverse: document.getElementById('tradeReverse').value,
+    notes: document.getElementById('tradeNotes').value,
+    image: null
+  };
+
+  const finish = () => {
+    trades[key(activeDay)] = data;
+    localStorage.setItem('tradingDashboardTrades', JSON.stringify(trades));
+    closeModal();
+    render();
+    showDetails(activeDay);
+  };
+
+  if(file){
+    const reader = new FileReader();
+    reader.onload = () => { data.image = reader.result; finish(); };
+    reader.readAsDataURL(file);
+  } else {
+    finish();
+  }
+}
+
+function removeTrade(day){
+  delete trades[key(day)];
+  localStorage.setItem('tradingDashboardTrades', JSON.stringify(trades));
+  document.getElementById('details').innerHTML = '<div class="text-zinc-500 text-center py-24">Clique em um dia</div>';
+  render();
+}
+
+function showDetails(day){
+  const t = trades[key(day)];
+  if(!t){
+    document.getElementById('details').innerHTML = '<div class="text-zinc-500 text-center py-24">Sem trade nesse dia</div>';
+    return;
+  }
+
+  document.getElementById('details').innerHTML = `
+    <h3 class="text-2xl font-black mb-4">Dia ${day} de ${months[currentMonth]}</h3>
+    <div class="mb-6">
+      <p class="text-zinc-400 mb-2">Resultado do dia</p>
+      <div class="text-4xl font-black ${t.amount >= 0 ? 'text-green-400':'text-red-400'}">
+        ${money(t.amount)} ${t.reverse === 'Sim' ? '<span class="text-yellow-400 text-3xl ml-2">V</span>' : ''}
+      </div>
+    </div>
+
+    <div class="bg-black/20 border border-white/10 rounded-3xl p-5 mb-5">
+      <p class="text-zinc-400 mb-2">Notas</p>
+      <div class="whitespace-pre-wrap text-zinc-200">${t.notes || 'Sem notas'}</div>
+      ${t.image ? `<img src="${t.image}" class="mt-5 rounded-2xl border border-white/10 w-full" />` : ''}
+    </div>
+
+    <div class="bg-black/20 border border-white/10 rounded-3xl p-5">
+      <div class="flex justify-between mb-4">
+        <h4 class="font-black text-xl">XAUUSD</h4>
+        <span class="${t.amount >= 0 ? 'text-green-400':'text-red-400'} font-black">${money(t.amount)}</span>
+      </div>
+      <div class="space-y-2 text-zinc-300">
+        <p>Tipo: ${t.type}</p>
+        <p>Canal: ${t.channel || '-'}</p>
+        <p>Take: ${t.take}</p>
+        <p>Virou a mão: ${t.reverse}</p>
+      </div>
+    </div>
+  `;
+}
+
+function updateStats(){
+  const mt = monthTrades();
+  const totalMonth = mt.reduce((a,b)=>a+Number(b.amount || 0),0);
+  const totalAll = allTrades().reduce((a,b)=>a+Number(b.amount || 0),0);
+  const initial = Number(document.getElementById('initialBalance').value || 0);
+  const wins = mt.filter(t=>t.amount > 0).length;
+  const losses = mt.filter(t=>t.amount < 0).length;
+  const wr = ((wins / ((wins + losses) || 1)) * 100).toFixed(1);
+
+  document.getElementById('balanceNow').textContent = money(initial + totalAll);
+  document.getElementById('winrate').textContent = `${wr}%`;
+  document.getElementById('winsLosses').textContent = `${wins} vitórias / ${losses} derrotas`;
+  document.getElementById('monthlyProfit').textContent = money(totalMonth);
+  document.getElementById('monthlyProfit').className = `text-4xl font-black ${totalMonth >= 0 ? 'text-green-400':'text-red-400'}`;
+  document.getElementById('monthlyTrades').textContent = `${mt.length} operações no mês`;
+}
+
+function renderCalendar(){
+  const calendar = document.getElementById('calendar');
+  calendar.innerHTML = '';
+  const first = new Date(year, currentMonth, 1).getDay();
+  const totalDays = new Date(year, currentMonth + 1, 0).getDate();
+
+  for(let i=0;i<first;i++){
+    const empty = document.createElement('div');
+    calendar.appendChild(empty);
+  }
+
+  for(let day=1; day<=totalDays; day++){
+    const t = trades[key(day)];
+    const div = document.createElement('div');
+    div.onclick = () => showDetails(day);
+
+    const base = 'day relative h-28 md:h-36 rounded-3xl border p-3 md:p-4 cursor-pointer transition duration-200 overflow-hidden ';
+    const cls = !t ? 'bg-[#111827] border-white/10 hover:border-white/20' :
+      t.amount >= 0 ? 'bg-green-500/10 border-green-500/30 hover:border-green-400/60' :
+      'bg-red-500/10 border-red-500/30 hover:border-red-400/60';
+
+    div.className = base + cls;
+
+    div.innerHTML = `
+      <div class="flex items-center justify-between mb-4 md:mb-6">
+        <span class="font-black text-base md:text-lg">${day}</span>
+        <button onclick="event.stopPropagation(); openModal(${day})"
+          class="w-7 h-7 md:w-8 md:h-8 rounded-xl bg-white/10 hover:bg-green-500 hover:text-black transition font-black">+</button>
+      </div>
+
+      ${t ? `
+        <div class="font-black text-sm md:text-xl ${t.amount >= 0 ? 'text-green-400':'text-red-400'}">
+          ${money(t.amount)}
+          ${t.reverse === 'Sim' ? '<span class="text-yellow-400 ml-1 md:ml-2">V</span>' : ''}
+        </div>
+        <button onclick="event.stopPropagation(); removeTrade(${day})"
+          class="trash absolute bottom-2 right-2 md:bottom-3 md:right-3 opacity-0 translate-y-1 bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white w-8 h-8 rounded-xl transition">🗑</button>
+      ` : ''}
+    `;
+    calendar.appendChild(div);
+  }
+}
+
+function render(){
+  renderCalendar();
+  updateStats();
+}
+
+function downloadBackup(){
+  const data = JSON.stringify({trades, initialBalance: document.getElementById('initialBalance').value}, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'trading-dashboard-backup.json';
+  a.click();
+}
+
+render();
+</script>
+</body>
+</html>
