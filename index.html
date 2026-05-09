@@ -154,12 +154,17 @@
       'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'
     ];
 
-    const trades = {};
+    let trades = JSON.parse(localStorage.getItem('tradingDashboardTrades') || '{}');
 
     let selectedMonth = 0;
     let activeDay = null;
 
     const monthSelect = document.getElementById('monthSelect');
+
+    const savedInitialBalance = localStorage.getItem('tradingDashboardInitialBalance');
+    if (savedInitialBalance !== null) {
+      document.getElementById('initialBalance').value = savedInitialBalance;
+    }
 
     months.forEach((m, i) => {
       monthSelect.innerHTML += `<option value="${i}">${m} 2026</option>`;
@@ -208,6 +213,7 @@
           day: activeDay
         };
 
+        localStorage.setItem('tradingDashboardTrades', JSON.stringify(trades));
         closeModal();
         renderCalendar();
         updateStats();
@@ -226,7 +232,7 @@
           type,
           day: activeDay
         };
-
+        localStorage.setItem('tradingDashboardTrades', JSON.stringify(trades));
         closeModal();
         renderCalendar();
         updateStats();
@@ -235,6 +241,7 @@
 
     function removeTrade(day) {
       delete trades[getKey(day)];
+      localStorage.setItem('tradingDashboardTrades', JSON.stringify(trades));
       renderCalendar();
       updateStats();
 
@@ -334,7 +341,10 @@
       document.getElementById('winrate').innerText = `${wr}%`;
     }
 
-    document.getElementById('initialBalance').addEventListener('input', updateStats);
+    document.getElementById('initialBalance').addEventListener('input', () => {
+      localStorage.setItem('tradingDashboardInitialBalance', document.getElementById('initialBalance').value);
+      updateStats();
+    });
 
     function renderCalendar() {
       const calendar = document.getElementById('calendar');
